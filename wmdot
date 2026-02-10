@@ -12,10 +12,6 @@ wmdot_common() {
         wmdot_error "Environment variable \$HOME missing"
     fi
 
-    if [ -z "${USER:-}" ]; then
-        wmdot_error "Environment variable \$USER missing"
-    fi
-
     if [ -z "${WMDOT_REPO:-}" ]; then
         WMDOT_REPO="$HOME/.local/var/wmdot"
     fi
@@ -39,7 +35,7 @@ $CMD <command> ...
 Install Commands:
 init:       initialize a local repository
 clone:      clone an upstream repository into home directory
-            e.g. $CMD clone git@github.com:$USER/home.git
+            e.g. $CMD clone git@github.com:[you]/home.git
 cancel:     remove all tracked files and the local repository
 
 File Commands:
@@ -75,7 +71,7 @@ sm-del:     delete submodules
             e.g. $CMD sm-del .local/zsh-autosuggestions .local/zsh-completions
 sm-update:  update submodules from remote repositories
             e.g. $CMD sm-update .local/zsh-autosuggestions .local/zsh-completions
-sm-reinit:  deregister, re-registion, re-initialize submodules
+sm-reinit:  deregister, re-register, re-initialize submodules
             e.g. $CMD sm-reinit .local/zsh-autosuggestions .local/zsh-completions
 
 Extended Commands:
@@ -105,7 +101,8 @@ wmdot_exec() {
 }
 
 wmdot_ls() {
-    git --git-dir="$WMDOT_REPO" ls-tree -r --name-only HEAD
+    wmdot_exec rev-parse --verify HEAD >/dev/null 2>&1 || return 0
+    wmdot_exec ls-tree -r --name-only HEAD
 }
 
 wmdot_continue() {
@@ -154,6 +151,12 @@ Home Directory      $HOME
 Local Repository    $WMDOT_REPO
 Originals Directory $WMDOT_ORIG
 EOF
+    wmdot_continue || {
+        echo "Aborted by user."
+        exit 1
+    }
+
+    trap 'rm -rf "$WMDOT_REPO"; [ -n "${OVERLAP_FILE:-}" ] && rm -f "$OVERLAP_FILE"; exit 1' INT TERM
 
     git clone --bare -- "$WMDOT_UP" "$WMDOT_REPO"
 
@@ -186,6 +189,8 @@ EOF
             mv "$SRC" "$DEST"
         done < "$OVERLAP_FILE"
     fi
+
+    trap - INT TERM
 
     rm -f "$OVERLAP_FILE"
 
@@ -220,6 +225,7 @@ EOF
 
     echo "Removing files..."
     DIR_FILE=$(mktemp)
+    trap 'rm -f "$DIR_FILE"; exit 1' INT TERM
     wmdot_ls | while IFS= read -r file; do
         wmdot_exec rm --force -- "$HOME/$file" > /dev/null
         dirname "$HOME/$file" >> "$DIR_FILE"
@@ -233,6 +239,8 @@ EOF
                 ;;
         esac
     done
+
+    trap - INT TERM
 
     rm -f "$DIR_FILE"
     rm -rf "$WMDOT_REPO"
@@ -434,10 +442,18 @@ wmdot_main() {
             fi
             ;;
         push)
-            set -- push --set-upstream origin master
+            branch="$(wmdot_exec rev-parse --abbrev-ref HEAD)"
+            if [ "$branch" = "HEAD" ]; then
+                wmdot_error "Cannot push: not on a branch (detached HEAD)"
+            fi
+            set -- push --set-upstream origin "$branch"
             ;;
         pull)
-            wmdot_exec pull --no-recurse-submodules origin master
+            branch="$(wmdot_exec rev-parse --abbrev-ref HEAD)"
+            if [ "$branch" = "HEAD" ]; then
+                wmdot_error "Cannot pull: not on a branch (detached HEAD)"
+            fi
+            wmdot_exec pull --no-recurse-submodules origin "$branch"
             wmdot_exec submodule update --init --recursive
             exit $?
             ;;
@@ -471,15 +487,19 @@ wmdot_main() {
         sm-update)
             shift
             if [ "$#" -eq "0" ]; then
+                top="$(wmdot_exec rev-parse --show-toplevel)"
                 IFS=$(printf '\nX')
                 IFS=${IFS%X}
                 set -- $(wmdot_sm_ls)
                 unset IFS
-                cd "$(wmdot_exec rev-parse --show-toplevel)"
+                for i in "$@"; do
+                    wmdot_sm_update "$top/$i"
+                done
+            else
+                for i in "$@"; do
+                    wmdot_sm_update "$i"
+                done
             fi
-            for i in "$@"; do
-                wmdot_sm_update "$i"
-            done
             exit $?
             ;;
         sm-reinit)
