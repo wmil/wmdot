@@ -75,6 +75,7 @@ sm-reinit:  deregister, re-register, re-initialize submodules
             e.g. $CMD sm-reinit .local/zsh-autosuggestions .local/zsh-completions
 
 Extended Commands:
+ls:         list all tracked files
 x:          execute raw git command
             e.g. $CMD x submodule deinit --force \$HOME
 
@@ -398,7 +399,7 @@ wmdot_main() {
             ;;
         clone)
             shift
-            wmdot_clone "$1"
+            wmdot_clone "${1:-}"
             exit $?
             ;;
         cancel)
@@ -424,6 +425,11 @@ wmdot_main() {
         co|checkout)
             shift
             if [ $# -eq 0 ]; then
+                echo "$CMD is about to restore all tracked files, overwriting any unstaged changes."
+                wmdot_continue || {
+                    echo "Aborted by user."
+                    exit 1
+                }
                 set -- checkout
             else
                 set -- checkout -- "$@"
