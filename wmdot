@@ -84,6 +84,7 @@ WMDOT_REPO: local repository (aka GIT_DIR)
             default: \$HOME/.local/var/wmdot
 WMDOT_ORIG: originals of overwritten files
             default: \$HOME/.local/var/original
+WMDOT_YOLO: skip all confirmations when set to any value
 EOF
 
     if [ -n "$MESSAGE" ]; then
@@ -107,6 +108,9 @@ wmdot_ls() {
 }
 
 wmdot_continue() {
+    if [ -n "${WMDOT_YOLO:-}" ]; then
+        return 0
+    fi
     while true; do
         printf "Continue? [y/N] "
         read -r KEY

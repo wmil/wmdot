@@ -89,3 +89,4 @@ The repository https://github.com/wmil/wmdot-ex is an example home directory rep
 |----------|---------|-------------|
 | `WMDOT_REPO` | `$HOME/.local/var/wmdot` | Path to the bare git repository |
 | `WMDOT_ORIG` | `$HOME/.local/var/original` | Directory for backed-up original files during clone |
+| `WMDOT_YOLO` | *(unset)* | Skip all confirmations when set to any value |
