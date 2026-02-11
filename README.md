@@ -11,7 +11,7 @@ It uses a bare git repository (by default at `~/.local/var/wmdot`) with `--git-d
 ```sh
 # Install necessary tools, requires root
 apt-get -y update
-apt-get -y install curl git zsh
+apt-get -y install curl git zsh tmux
 
 # Clone wmdot-ex into the current home directory
 sh -c "$(curl -fsSL https://go.keepconn.com/wmdot)" @ clone https://github.com/wmil/wmdot-ex.git
